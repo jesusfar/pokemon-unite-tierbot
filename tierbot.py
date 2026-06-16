@@ -40,7 +40,7 @@ def main() -> int:
 
     try:
         if not args.message_only:
-            result = fetch_pokemon_meta_result(no_browser=args.no_browser)
+            result = fetch_pokemon_meta_result(no_browser=args.no_browser, fast_fail=args.weekly)
             tiers = assign_tiers(result.pokemon)
             comparison_report = compare_with_external_sources(tiers, no_browser=args.no_browser)
             generate_tierlist_image(

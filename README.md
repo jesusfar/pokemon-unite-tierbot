@@ -117,7 +117,7 @@ python tierbot.py --message-only
 ## GitHub Actions
 
 - `.github/workflows/monthly-tierlist.yml`: publica el día 1 de cada mes y permite ejecución manual.
-- `.github/workflows/weekly-tierpulse.yml`: publica el pulso semanal cada lunes y permite ejecución manual.
+- `.github/workflows/weekly-tierpulse.yml`: publica el pulso semanal cada lunes y permite ejecución manual. Usa una ruta rápida de Playwright para intentar UniteAPI sin quedarse bloqueado.
 - `.github/workflows/ci.yml`: ejecuta lint, tests y generación de imagen sin publicar.
 
 ## Desarrollo

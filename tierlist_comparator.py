@@ -170,7 +170,7 @@ def parse_image_alt_tiers(soup: BeautifulSoup, candidate_names: list[str]) -> di
     current_tier: str | None = None
 
     for image in soup.find_all("img"):
-        alt = image.get("alt", "").strip()
+        alt = clean_image_label(image.get("alt", ""))
         tier = tier_from_text(alt)
         if tier:
             current_tier = tier
@@ -195,17 +195,25 @@ def parse_textual_tiers(soup: BeautifulSoup, candidate_names: list[str]) -> dict
 
 
 def tier_from_text(text: str) -> str | None:
-    clean = text.lower().replace("rank", "").replace("tier", "").replace("icon", "").strip()
+    clean = clean_image_label(text).lower().replace("rank", "").replace("tier", "").replace("icon", "").strip()
     clean = re.sub(r"[^a-z+]", "", clean)
     return EXTERNAL_TIER_MAP.get(clean)
 
 
 def canonical_name(name: str) -> str:
-    value = name.lower()
+    value = clean_image_label(name).lower()
     value = value.replace("mega ", "").replace("alolan ", "").replace("galarian ", "")
     value = value.replace("mewtwo x", "mewtwo x").replace("mewtwo y", "mewtwo y")
     value = re.sub(r"[^a-z0-9]+", "", value)
     return value
+
+
+def clean_image_label(text: str) -> str:
+    value = text.strip()
+    value = re.sub(r"^image:\s*", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"\s+-\s+.*$", "", value)
+    value = value.replace("Pokemon UNITE - ", "")
+    return value.strip()
 
 
 def display_name(canonical: str) -> str:

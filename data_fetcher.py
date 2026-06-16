@@ -29,11 +29,11 @@ def fetch_pokemon_meta(no_browser: bool = False) -> list[dict[str, Any]]:
     return fetch_pokemon_meta_result(no_browser=no_browser).pokemon
 
 
-def fetch_pokemon_meta_result(no_browser: bool = False) -> FetchResult:
+def fetch_pokemon_meta_result(no_browser: bool = False, fast_fail: bool = False) -> FetchResult:
     for url, locale in ((META_URL_ES, "es"), (META_URL_EN, "en")):
         try:
             LOGGER.info("Intentando obtener datos desde %s", url)
-            html = fetch_with_requests(url)
+            html = fetch_with_requests(url, fast_fail=fast_fail or no_browser)
             pokemon = parse_meta_html(html, url)
             if is_usable_dataset(pokemon):
                 LOGGER.info("Datos obtenidos desde UniteAPI con requests: %s Pokemon", len(pokemon))
@@ -49,7 +49,7 @@ def fetch_pokemon_meta_result(no_browser: bool = False) -> FetchResult:
 
         if not no_browser:
             try:
-                html = fetch_with_playwright(url)
+                html = fetch_with_playwright(url, fast_fail=fast_fail)
                 pokemon = parse_meta_html(html, url)
                 if is_usable_dataset(pokemon):
                     LOGGER.info("Datos obtenidos con Playwright: %s Pokemon", len(pokemon))
@@ -71,25 +71,27 @@ def fetch_pokemon_meta_result(no_browser: bool = False) -> FetchResult:
     return FetchResult(pokemon=attach_cached_images(load_sample_data()), source="sample", used_fallback=True)
 
 
-def fetch_with_requests(url: str) -> str:
+def fetch_with_requests(url: str, fast_fail: bool = False) -> str:
     last_error: Exception | None = None
-    for attempt in range(1, REQUEST_RETRIES + 1):
+    retries = 2 if fast_fail else REQUEST_RETRIES
+    timeout = 10 if fast_fail else REQUEST_TIMEOUT_SECONDS
+    for attempt in range(1, retries + 1):
         try:
             response = requests.get(
                 url,
-                timeout=REQUEST_TIMEOUT_SECONDS,
+                timeout=timeout,
                 headers={"User-Agent": USER_AGENT, "Accept-Language": "es,en;q=0.8"},
             )
             response.raise_for_status()
             return response.text
         except requests.RequestException as exc:
             last_error = exc
-            if attempt < REQUEST_RETRIES:
+            if attempt < retries:
                 sleep_for = REQUEST_BACKOFF_SECONDS * attempt
                 LOGGER.warning(
                     "Intento %s/%s fallo para %s; reintentando en %.1fs",
                     attempt,
-                    REQUEST_RETRIES,
+                    retries,
                     url,
                     sleep_for,
                 )
@@ -97,16 +99,20 @@ def fetch_with_requests(url: str) -> str:
     raise RuntimeError(f"No se pudo descargar {url}: {last_error}")
 
 
-def fetch_with_playwright(url: str) -> str:
+def fetch_with_playwright(url: str, fast_fail: bool = False) -> str:
     from playwright.sync_api import sync_playwright
 
+    timeout = 15000 if fast_fail else REQUEST_TIMEOUT_SECONDS * 1000
+    settle_ms = 3000 if fast_fail else 5000
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
-        page = browser.new_page(user_agent=USER_AGENT)
-        page.goto(url, wait_until="networkidle", timeout=REQUEST_TIMEOUT_SECONDS * 1000)
-        html = page.content()
-        browser.close()
-        return html
+        try:
+            page = browser.new_page(user_agent=USER_AGENT)
+            page.goto(url, wait_until="domcontentloaded", timeout=timeout)
+            page.wait_for_timeout(settle_ms)
+            return page.content()
+        finally:
+            browser.close()
 
 
 def parse_meta_html(html: str, base_url: str) -> list[dict[str, Any]]:
