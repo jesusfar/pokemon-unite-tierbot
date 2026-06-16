@@ -14,8 +14,10 @@ La versión Discord usa:
 - score a 1 decimal
 - Top 3 destacado
 - chips de “más usado” y “más baneado”
+- panel de comparación contra Game8 y Unite-DB cuando están disponibles
 - resumen textual por tier en el mensaje de Discord
 - fuente de datos visible
+- marca de propiedad de STARRY GARDEN en el pie de la imagen
 
 ## Datos
 
@@ -31,6 +33,15 @@ sample_data.json
 ```
 
 Si UniteAPI entrega imágenes, el bot las descarga en `assets/cache/pokemon/` y las reutiliza. Si no hay imagen oficial/cacheada, usa placeholder.
+
+## Comparación externa
+
+Antes de publicar, el bot intenta comparar su tier list contra:
+
+- `https://game8.co/games/Pokemon-UNITE/archives/335997`
+- `https://unite-db.com/tier-list/competitive`
+
+La comparación es informativa: añade consenso y diferencias fuertes al mensaje/imagen, pero no bloquea la publicación si esas páginas fallan, cambian su HTML o no están disponibles.
 
 ## Score
 

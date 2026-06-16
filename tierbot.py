@@ -5,6 +5,7 @@ from config import OUTPUT_DISCORD_IMAGE, OUTPUT_IMAGE
 from data_fetcher import fetch_pokemon_meta_result
 from discord_sender import get_webhook_url, send_to_discord
 from image_generator import generate_tierlist_image
+from tierlist_comparator import compare_with_external_sources
 from utils import assign_tiers, setup_logging
 
 LOGGER = logging.getLogger(__name__)
@@ -37,11 +38,23 @@ def main() -> int:
         if not args.message_only:
             result = fetch_pokemon_meta_result(no_browser=args.no_browser)
             tiers = assign_tiers(result.pokemon)
-            generate_tierlist_image(tiers, OUTPUT_IMAGE, source_label=result.source_label)
-            generate_tierlist_image(tiers, OUTPUT_DISCORD_IMAGE, source_label=result.source_label)
+            comparison_report = compare_with_external_sources(tiers, no_browser=args.no_browser)
+            generate_tierlist_image(
+                tiers,
+                OUTPUT_IMAGE,
+                source_label=result.source_label,
+                comparison_report=comparison_report,
+            )
+            generate_tierlist_image(
+                tiers,
+                OUTPUT_DISCORD_IMAGE,
+                source_label=result.source_label,
+                comparison_report=comparison_report,
+            )
         else:
             tiers = None
             result = None
+            comparison_report = None
 
         if should_send:
             send_to_discord(
@@ -49,6 +62,7 @@ def main() -> int:
                 tiers=tiers,
                 source_label=result.source_label if result else "imagen generada previamente",
                 used_fallback=result.used_fallback if result else False,
+                comparison_report=comparison_report,
             )
         else:
             LOGGER.info("Dry run completado; no se publico en Discord.")

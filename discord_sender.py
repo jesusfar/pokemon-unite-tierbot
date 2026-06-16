@@ -16,6 +16,7 @@ def build_discord_message(
     tiers: dict[str, list[dict[str, Any]]] | None = None,
     source_label: str = "UniteAPI Meta",
     used_fallback: bool = False,
+    comparison_report: Any | None = None,
 ) -> str:
     lines = [
         "🔴 Nueva Tier List mensual automática de Pokémon UNITE",
@@ -29,6 +30,9 @@ def build_discord_message(
     if tiers:
         lines.append("")
         lines.extend(format_tier_summary(tiers))
+    if comparison_report:
+        lines.append("")
+        lines.extend(comparison_report.discord_lines())
     lines.append("")
     lines.append("La tier list es automática y puede variar según disponibilidad de datos.")
     return "\n".join(lines)
@@ -49,6 +53,7 @@ def send_to_discord(
     tiers: dict[str, list[dict[str, Any]]] | None = None,
     source_label: str = "UniteAPI Meta",
     used_fallback: bool = False,
+    comparison_report: Any | None = None,
 ) -> None:
     webhook_url = get_webhook_url()
     if not image_path.exists():
@@ -56,7 +61,7 @@ def send_to_discord(
     if image_path.stat().st_size > DISCORD_MAX_FILE_BYTES:
         raise RuntimeError(f"La imagen pesa mas de {DISCORD_MAX_FILE_BYTES} bytes: {image_path.stat().st_size}")
 
-    message = build_discord_message(tiers, source_label, used_fallback)
+    message = build_discord_message(tiers, source_label, used_fallback, comparison_report)
     LOGGER.info("Publicando tier list en Discord")
     last_error: Exception | None = None
     for attempt in range(1, REQUEST_RETRIES + 1):

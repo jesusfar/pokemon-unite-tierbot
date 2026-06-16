@@ -4,6 +4,8 @@ PROJECT_NAME = "pokemon-unite-tierbot"
 
 META_URL_ES = "https://uniteapi.dev/es/meta"
 META_URL_EN = "https://uniteapi.dev/en/meta"
+GAME8_TIER_LIST_URL = "https://game8.co/games/Pokemon-UNITE/archives/335997"
+UNITE_DB_TIER_LIST_URL = "https://unite-db.com/tier-list/competitive"
 
 OUTPUT_DIR = Path("output")
 OUTPUT_IMAGE = OUTPUT_DIR / "tierlist_pokemon_unite.png"
@@ -38,3 +40,4 @@ USER_AGENT = (
 )
 
 MIN_VALID_POKEMON = 5
+PROPERTY_NOTICE = "Propiedad de 🌙 𝑺𝑻𝑨𝑹𝑹𝒀 𝑮𝑨𝑹𝑫𝑬𝑵 ✦"

@@ -32,6 +32,7 @@ def generate_tierlist_image(
     tiers: dict[str, list[dict[str, Any]]],
     output_path: Path = OUTPUT_IMAGE,
     source_label: str = "UniteAPI Meta",
+    comparison_report: Any | None = None,
 ) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -41,8 +42,8 @@ def generate_tierlist_image(
     most_used = max(all_pokemon, key=lambda item: item["pick_rate"], default=None)
     most_banned = max(all_pokemon, key=lambda item: item["ban_rate"], default=None)
 
-    header_height = 365
-    footer_height = 70
+    header_height = 430
+    footer_height = 92
     row_layouts = [tier_row_layout(items) for items in tiers.values()]
     height = header_height + sum(layout["height"] for layout in row_layouts) + footer_height + IMAGE_MARGIN
 
@@ -52,6 +53,7 @@ def generate_tierlist_image(
     draw_background(draw, image.size)
     draw_header(draw, fonts, source_label)
     draw_highlights(image, draw, fonts, top_three, most_used, most_banned)
+    draw_comparison_panel(draw, fonts, comparison_report)
 
     y = header_height
     for (tier_name, pokemon), layout in zip(tiers.items(), row_layouts, strict=True):
@@ -60,6 +62,7 @@ def generate_tierlist_image(
 
     footer = "Score = WR 60% + PR 25% + BR 15%. Datos automaticos; pueden variar segun disponibilidad."
     draw.text((IMAGE_MARGIN, height - 74), footer, font=fonts["tiny"], fill=(132, 136, 149))
+    draw_property_notice(draw, fonts, IMAGE_WIDTH - IMAGE_MARGIN, height - 48)
     image.save(output_path, "PNG", optimize=True)
     LOGGER.info("Imagen generada en %s", output_path)
 
@@ -129,6 +132,40 @@ def draw_highlights(
             f"{most_banned['ban_rate']:.1f}% BR",
             fonts,
         )
+
+
+def draw_comparison_panel(
+    draw: ImageDraw.ImageDraw,
+    fonts: dict[str, ImageFont.FreeTypeFont],
+    comparison_report: Any | None,
+) -> None:
+    y = 334
+    left = IMAGE_MARGIN
+    right = IMAGE_WIDTH - IMAGE_MARGIN
+    draw.rounded_rectangle((left, y, right, y + 58), radius=8, fill=(24, 25, 32), outline=(64, 65, 78), width=1)
+    if not comparison_report:
+        text = "Comparacion externa: no ejecutada"
+        detail = "Se publica usando datos del meta calculado."
+    else:
+        text = f"Comparacion externa: {comparison_report.short_status()}"
+        if comparison_report.consensus_top:
+            detail = "Consenso alto: " + ", ".join(comparison_report.consensus_top[:6])
+        elif comparison_report.warnings:
+            detail = "Diferencias: " + "; ".join(comparison_report.warnings[:2])
+        else:
+            detail = "Sin diferencias fuertes detectadas entre fuentes disponibles."
+    draw.text(
+        (left + 18, y + 10),
+        fit_text(draw, text, fonts["tiny_bold"], right - left - 36),
+        font=fonts["tiny_bold"],
+        fill=TEXT,
+    )
+    draw.text(
+        (left + 18, y + 34),
+        fit_text(draw, detail, fonts["tiny"], right - left - 36),
+        font=fonts["tiny"],
+        fill=MUTED,
+    )
 
 
 def draw_mini_highlight(
@@ -261,6 +298,25 @@ def draw_pill(
     )
 
 
+def draw_property_notice(
+    draw: ImageDraw.ImageDraw,
+    fonts: dict[str, ImageFont.FreeTypeFont],
+    right: int,
+    y: int,
+) -> None:
+    chunks = [
+        ("Propiedad de ", fonts["property"]),
+        ("🌙 ", fonts["property_emoji"]),
+        ("𝑺𝑻𝑨𝑹𝑹𝒀 𝑮𝑨𝑹𝑫𝑬𝑵", fonts["property"]),
+        (" ✦", fonts["property_symbol"]),
+    ]
+    total_width = sum(draw.textlength(text, font=font) for text, font in chunks)
+    x = right - total_width
+    for text, font in chunks:
+        draw.text((x, y), text, font=font, fill=(224, 190, 203))
+        x += draw.textlength(text, font=font)
+
+
 def draw_placeholder(draw: ImageDraw.ImageDraw, x: int, y: int, size: int) -> None:
     draw.rounded_rectangle((x, y, x + size, y + size), radius=14, fill=(29, 30, 39), outline=RED_DARK, width=3)
     inset = max(8, int(size * 0.27))
@@ -316,6 +372,27 @@ def load_fonts() -> dict[str, ImageFont.FreeTypeFont]:
                 continue
         return ImageFont.load_default(size=size)
 
+    def property_font(size: int) -> ImageFont.FreeTypeFont:
+        for path in (
+            "C:/Windows/Fonts/cambria.ttc",
+            "C:/Windows/Fonts/seguisym.ttf",
+            "C:/Windows/Fonts/seguiemj.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
+        ):
+            try:
+                return ImageFont.truetype(path, size=size)
+            except OSError:
+                continue
+        return font(size, True)
+
+    def font_from(paths: tuple[str, ...], size: int) -> ImageFont.FreeTypeFont:
+        for path in paths:
+            try:
+                return ImageFont.truetype(path, size=size)
+            except OSError:
+                continue
+        return font(size, True)
+
     return {
         "title": font(52, True),
         "subtitle": font(26),
@@ -328,4 +405,7 @@ def load_fonts() -> dict[str, ImageFont.FreeTypeFont]:
         "tiny": font(15),
         "tiny_bold": font(15, True),
         "micro": font(11, True),
+        "property": property_font(18),
+        "property_emoji": font_from(("C:/Windows/Fonts/seguiemj.ttf", "C:/Windows/Fonts/seguisym.ttf"), 18),
+        "property_symbol": font_from(("C:/Windows/Fonts/seguisym.ttf", "C:/Windows/Fonts/cambria.ttc"), 18),
     }
