@@ -12,14 +12,18 @@ LOGGER = logging.getLogger(__name__)
 
 TIER_ORDER = {"S": 5, "A": 4, "B": 3, "C": 2, "D": 1}
 EXTERNAL_TIER_MAP = {
+    "ex": "S",
     "op": "S",
     "ss": "S",
     "s+": "S",
     "s": "S",
+    "a+": "A",
     "a": "A",
+    "b+": "B",
     "b": "B",
     "c": "C",
     "d": "D",
+    "f": "D",
 }
 
 
@@ -129,11 +133,22 @@ def fetch_game8_tier_list(candidate_names: list[str]) -> ExternalTierList:
 
 def fetch_unite_db_tier_list(candidate_names: list[str], no_browser: bool = False) -> ExternalTierList:
     try:
+        tiers = fetch_unite_db_json_tiers(candidate_names)
+        if tiers:
+            return ExternalTierList(
+                "Unite-DB",
+                UNITE_DB_TIER_LIST_URL,
+                tiers,
+                ok=True,
+            )
+
         html = fetch_html(UNITE_DB_TIER_LIST_URL)
-        tiers = parse_textual_tiers(BeautifulSoup(html, "html.parser"), candidate_names)
+        soup = BeautifulSoup(html, "html.parser")
+        tiers = parse_textual_tiers(soup, candidate_names) or parse_image_alt_tiers(soup, candidate_names)
         if not tiers and not no_browser:
             html = fetch_rendered_html(UNITE_DB_TIER_LIST_URL)
-            tiers = parse_textual_tiers(BeautifulSoup(html, "html.parser"), candidate_names)
+            soup = BeautifulSoup(html, "html.parser")
+            tiers = parse_textual_tiers(soup, candidate_names) or parse_image_alt_tiers(soup, candidate_names)
         return ExternalTierList(
             "Unite-DB",
             UNITE_DB_TIER_LIST_URL,
@@ -147,9 +162,26 @@ def fetch_unite_db_tier_list(candidate_names: list[str], no_browser: bool = Fals
 
 
 def fetch_html(url: str) -> str:
-    response = requests.get(url, timeout=REQUEST_TIMEOUT_SECONDS, headers={"User-Agent": USER_AGENT})
+    response = requests.get(url, timeout=REQUEST_TIMEOUT_SECONDS, headers=request_headers(url))
     response.raise_for_status()
     return response.text
+
+
+def fetch_unite_db_json_tiers(candidate_names: list[str]) -> dict[str, str]:
+    response = requests.get(
+        "https://unite-db.com/pokemon.json",
+        timeout=REQUEST_TIMEOUT_SECONDS,
+        headers=request_headers(UNITE_DB_TIER_LIST_URL),
+    )
+    response.raise_for_status()
+    candidates = {canonical_name(name) for name in candidate_names}
+    tiers: dict[str, str] = {}
+    for item in response.json():
+        canonical = canonical_name(str(item.get("display_name") or item.get("name") or ""))
+        tier = normalize_external_tier(str(item.get("tier") or ""))
+        if canonical in candidates and tier:
+            tiers[canonical] = tier
+    return tiers
 
 
 def fetch_rendered_html(url: str) -> str:
@@ -157,11 +189,22 @@ def fetch_rendered_html(url: str) -> str:
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
-        page = browser.new_page(user_agent=USER_AGENT)
-        page.goto(url, wait_until="networkidle", timeout=REQUEST_TIMEOUT_SECONDS * 1000)
-        html = page.content()
-        browser.close()
-        return html
+        try:
+            page = browser.new_page(user_agent=USER_AGENT, extra_http_headers=request_headers(url))
+            page.goto(url, wait_until="domcontentloaded", timeout=REQUEST_TIMEOUT_SECONDS * 1000)
+            page.wait_for_timeout(3500)
+            return page.content()
+        finally:
+            browser.close()
+
+
+def request_headers(url: str) -> dict[str, str]:
+    return {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,*/*;q=0.7",
+        "Accept-Language": "es-ES,es;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Referer": "https://www.google.com/" if "game8.co" in url else url,
+    }
 
 
 def parse_image_alt_tiers(soup: BeautifulSoup, candidate_names: list[str]) -> dict[str, str]:
@@ -196,6 +239,12 @@ def parse_textual_tiers(soup: BeautifulSoup, candidate_names: list[str]) -> dict
 
 def tier_from_text(text: str) -> str | None:
     clean = clean_image_label(text).lower().replace("rank", "").replace("tier", "").replace("icon", "").strip()
+    clean = re.sub(r"[^a-z+]", "", clean)
+    return normalize_external_tier(clean)
+
+
+def normalize_external_tier(text: str) -> str | None:
+    clean = clean_image_label(text).lower().replace("rank", "").replace("tier", "").strip()
     clean = re.sub(r"[^a-z+]", "", clean)
     return EXTERNAL_TIER_MAP.get(clean)
 

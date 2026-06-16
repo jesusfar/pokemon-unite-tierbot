@@ -30,3 +30,27 @@ def test_parse_embedded_json() -> None:
 
     assert pokemon[0]["name"] == "Lucario"
     assert pokemon[0]["win_rate"] == 52
+
+
+def test_parse_accessible_grid_rows() -> None:
+    html = """
+    <div role="table">
+      <div role="row">
+        <div role="columnheader">Pokemon</div>
+        <div role="columnheader">Win Rate</div>
+        <div role="columnheader">Pick Rate</div>
+        <div role="columnheader">Ban Rate</div>
+      </div>
+      <div role="row">
+        <div role="cell"><img src="/pikachu.png" alt="Pikachu">Pikachu</div>
+        <div role="cell">51.2%</div>
+        <div role="cell">10.5%</div>
+        <div role="cell">3.0%</div>
+      </div>
+    </div>
+    """
+
+    pokemon = parse_meta_html(html, "https://uniteapi.dev/en/meta")
+
+    assert pokemon[0]["name"] == "Pikachu"
+    assert pokemon[0]["win_rate"] == 51.2

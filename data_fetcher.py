@@ -104,13 +104,41 @@ def fetch_with_playwright(url: str, fast_fail: bool = False) -> str:
 
     timeout = 15000 if fast_fail else REQUEST_TIMEOUT_SECONDS * 1000
     settle_ms = 3000 if fast_fail else 5000
+    captured_payloads: list[Any] = []
+
+    def capture_response(response: Any) -> None:
+        try:
+            content_type = response.headers.get("content-type", "")
+            response_url = response.url.lower()
+            interesting_url = any(
+                token in response_url
+                for token in ("/meta", "pokemon", "ranking", "stats", "uniteapi")
+            )
+            if "json" not in content_type.lower() and not interesting_url:
+                return
+
+            payload = response.json()
+            if flatten_json_candidates(payload):
+                captured_payloads.append(payload)
+        except Exception:
+            return
+
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         try:
             page = browser.new_page(user_agent=USER_AGENT)
+            page.on("response", capture_response)
             page.goto(url, wait_until="domcontentloaded", timeout=timeout)
             page.wait_for_timeout(settle_ms)
-            return page.content()
+            html = page.content()
+            if captured_payloads:
+                LOGGER.info("Playwright capturo %s respuestas JSON utiles desde %s", len(captured_payloads), url)
+                payload_scripts = []
+                for payload in captured_payloads:
+                    safe_payload = json.dumps(payload).replace("</", "<\\/")
+                    payload_scripts.append(f'<script type="application/json">{safe_payload}</script>')
+                html += "\n".join(payload_scripts)
+            return html
         finally:
             browser.close()
 
@@ -119,14 +147,16 @@ def parse_meta_html(html: str, base_url: str) -> list[dict[str, Any]]:
     soup = BeautifulSoup(html, "html.parser")
     json_candidates = parse_embedded_json(soup)
     table_candidates = parse_tables(soup, base_url)
+    grid_candidates = parse_accessible_grids(soup, base_url)
     card_candidates = parse_cards(soup, base_url)
     LOGGER.info(
-        "Extraccion HTML: json=%s tablas=%s cards=%s",
+        "Extraccion HTML: json=%s tablas=%s grids=%s cards=%s",
         len(json_candidates),
         len(table_candidates),
+        len(grid_candidates),
         len(card_candidates),
     )
-    return dedupe_by_name(json_candidates + table_candidates + card_candidates)
+    return dedupe_by_name(json_candidates + table_candidates + grid_candidates + card_candidates)
 
 
 def parse_embedded_json(soup: BeautifulSoup) -> list[dict[str, Any]]:
@@ -165,6 +195,28 @@ def parse_tables(soup: BeautifulSoup, base_url: str) -> list[dict[str, Any]]:
             image = row.find("img")
             if image and image.get("src"):
                 row_data["image_url"] = urljoin(base_url, image["src"])
+            normalized = normalize_pokemon(row_data)
+            if normalized:
+                candidates.append(normalized)
+    return candidates
+
+
+def parse_accessible_grids(soup: BeautifulSoup, base_url: str) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    for container in soup.select('[role="table"], [role="grid"]'):
+        headers = [cell.get_text(" ", strip=True).lower() for cell in container.select('[role="columnheader"]')]
+        for row in container.select('[role="row"]'):
+            cells = row.select('[role="cell"], [role="gridcell"], [role="columnheader"]')
+            if len(cells) < 2:
+                continue
+            values = [cell.get_text(" ", strip=True) for cell in cells]
+            row_data = row_to_data(headers, values)
+            image = row.find("img")
+            if image:
+                if image.get("alt") and not row_data.get("name"):
+                    row_data["name"] = image["alt"]
+                if image.get("src"):
+                    row_data["image_url"] = urljoin(base_url, image["src"])
             normalized = normalize_pokemon(row_data)
             if normalized:
                 candidates.append(normalized)
