@@ -1,0 +1,45 @@
+name: Monthly Pokemon Unite Tier List
+
+on:
+  schedule:
+    - cron: "0 12 1 * *"
+  workflow_dispatch:
+
+concurrency:
+  group: monthly-pokemon-unite-tierlist
+  cancel-in-progress: false
+
+jobs:
+  generate-and-send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      - name: Generate and publish tier list
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: python tierbot.py --send
+
+      - name: Upload generated image
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tierlist-pokemon-unite
+          path: |
+            output/tierlist_pokemon_unite.png
+            output/tierlist_pokemon_unite_discord.png

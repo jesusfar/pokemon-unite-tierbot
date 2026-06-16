@@ -1,0 +1,62 @@
+import argparse
+import logging
+
+from config import OUTPUT_DISCORD_IMAGE, OUTPUT_IMAGE
+from data_fetcher import fetch_pokemon_meta_result
+from discord_sender import get_webhook_url, send_to_discord
+from image_generator import generate_tierlist_image
+from utils import assign_tiers, setup_logging
+
+LOGGER = logging.getLogger(__name__)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Genera y publica una tier list mensual de Pokemon UNITE.")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--dry-run", action="store_true", help="Genera la imagen sin publicar en Discord.")
+    mode.add_argument("--send", action="store_true", help="Genera la imagen y la publica en Discord.")
+    mode.add_argument("--image-only", action="store_true", help="Alias explicito de --dry-run.")
+    mode.add_argument("--message-only", action="store_true", help="Publica en Discord una imagen ya generada.")
+    parser.add_argument("--no-browser", action="store_true", help="No usa Playwright; intenta solo con requests.")
+    parser.add_argument("--verbose", action="store_true", help="Muestra logs de depuracion.")
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    setup_logging(args.verbose)
+
+    should_send = args.send or args.message_only
+    if should_send:
+        get_webhook_url()
+
+    if not any((args.dry_run, args.send, args.image_only, args.message_only)):
+        LOGGER.info("No se indico modo; se usara --dry-run por seguridad.")
+
+    try:
+        if not args.message_only:
+            result = fetch_pokemon_meta_result(no_browser=args.no_browser)
+            tiers = assign_tiers(result.pokemon)
+            generate_tierlist_image(tiers, OUTPUT_IMAGE, source_label=result.source_label)
+            generate_tierlist_image(tiers, OUTPUT_DISCORD_IMAGE, source_label=result.source_label)
+        else:
+            tiers = None
+            result = None
+
+        if should_send:
+            send_to_discord(
+                OUTPUT_DISCORD_IMAGE,
+                tiers=tiers,
+                source_label=result.source_label if result else "imagen generada previamente",
+                used_fallback=result.used_fallback if result else False,
+            )
+        else:
+            LOGGER.info("Dry run completado; no se publico en Discord.")
+        return 0
+    except Exception as exc:
+        LOGGER.exception("No se pudo completar la tier list: %s", exc)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

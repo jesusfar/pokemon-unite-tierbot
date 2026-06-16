@@ -1,0 +1,24 @@
+{
+  "pokemon": [
+    {"name": "Mewtwo X", "win_rate": 53.8, "pick_rate": 18.5, "ban_rate": 31.2},
+    {"name": "Miraidon", "win_rate": 52.9, "pick_rate": 16.4, "ban_rate": 27.5},
+    {"name": "Zacian", "win_rate": 52.1, "pick_rate": 14.2, "ban_rate": 24.1},
+    {"name": "Leafeon", "win_rate": 51.8, "pick_rate": 13.8, "ban_rate": 12.7},
+    {"name": "Blaziken", "win_rate": 51.5, "pick_rate": 12.5, "ban_rate": 10.3},
+    {"name": "Umbreon", "win_rate": 51.1, "pick_rate": 15.3, "ban_rate": 8.4},
+    {"name": "Ho-Oh", "win_rate": 50.9, "pick_rate": 11.7, "ban_rate": 13.2},
+    {"name": "Mimikyu", "win_rate": 50.7, "pick_rate": 10.8, "ban_rate": 8.8},
+    {"name": "Gyarados", "win_rate": 50.4, "pick_rate": 9.9, "ban_rate": 7.1},
+    {"name": "Ceruledge", "win_rate": 50.1, "pick_rate": 9.3, "ban_rate": 6.4},
+    {"name": "Slowbro", "win_rate": 49.9, "pick_rate": 12.1, "ban_rate": 5.9},
+    {"name": "Eldegoss", "win_rate": 49.7, "pick_rate": 10.6, "ban_rate": 2.3},
+    {"name": "Delphox", "win_rate": 49.5, "pick_rate": 8.4, "ban_rate": 4.5},
+    {"name": "Greninja", "win_rate": 49.1, "pick_rate": 11.2, "ban_rate": 3.1},
+    {"name": "Lucario", "win_rate": 48.8, "pick_rate": 7.7, "ban_rate": 2.5},
+    {"name": "Cinderace", "win_rate": 48.2, "pick_rate": 8.9, "ban_rate": 1.8},
+    {"name": "Gardevoir", "win_rate": 47.9, "pick_rate": 7.2, "ban_rate": 2.1},
+    {"name": "Charizard", "win_rate": 47.4, "pick_rate": 6.8, "ban_rate": 1.5},
+    {"name": "Pikachu", "win_rate": 47.0, "pick_rate": 6.5, "ban_rate": 1.2},
+    {"name": "Talonflame", "win_rate": 46.6, "pick_rate": 5.1, "ban_rate": "0.9%"}
+  ]
+}
