@@ -1,12 +1,12 @@
-name: Monthly Pokemon Unite Tier List
+name: Weekly Pokemon Unite Meta Pulse
 
 on:
   schedule:
-    - cron: "0 12 1 * *"
+    - cron: "0 12 * * 1"
   workflow_dispatch:
 
 concurrency:
-  group: monthly-pokemon-unite-tierlist
+  group: weekly-pokemon-unite-tierpulse
   cancel-in-progress: false
 
 jobs:
@@ -30,16 +30,16 @@ jobs:
           pip install -r requirements.txt
           playwright install --with-deps chromium
 
-      - name: Generate and publish tier list
+      - name: Generate and publish weekly pulse
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: python tierbot.py --monthly --send
+        run: python tierbot.py --weekly --send
 
-      - name: Upload generated image
+      - name: Upload generated images
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: tierlist-pokemon-unite
+          name: weekly-pokemon-unite-tierpulse
           path: |
-            output/tierlist_pokemon_unite.png
-            output/tierlist_pokemon_unite_discord.png
+            output/tierlist_pokemon_unite_weekly.png
+            output/tierlist_pokemon_unite_weekly_discord.png

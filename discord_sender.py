@@ -7,6 +7,7 @@ from typing import Any
 import requests
 
 from config import DISCORD_MAX_FILE_BYTES, DISCORD_WEBHOOK_ENV, REQUEST_RETRIES, REQUEST_TIMEOUT_SECONDS
+from report_config import MONTHLY_REPORT, ReportConfig
 from utils import spanish_date
 
 LOGGER = logging.getLogger(__name__)
@@ -17,10 +18,12 @@ def build_discord_message(
     source_label: str = "UniteAPI Meta",
     used_fallback: bool = False,
     comparison_report: Any | None = None,
+    report_config: ReportConfig | None = None,
 ) -> str:
+    report_config = report_config or MONTHLY_REPORT
     lines = [
-        "🔴 Nueva Tier List mensual automática de Pokémon UNITE",
-        "📊 Basada en estadísticas del meta: tasa de victoria, uso y baneo.",
+        report_config.discord_title,
+        f"📊 {report_config.description}",
         "🌙 Generada automáticamente para STARRY GARDEN.",
         f"📅 Fecha: {spanish_date()}",
         f"🧾 Fuente: {source_label}",
@@ -54,6 +57,7 @@ def send_to_discord(
     source_label: str = "UniteAPI Meta",
     used_fallback: bool = False,
     comparison_report: Any | None = None,
+    report_config: ReportConfig | None = None,
 ) -> None:
     webhook_url = get_webhook_url()
     if not image_path.exists():
@@ -61,7 +65,7 @@ def send_to_discord(
     if image_path.stat().st_size > DISCORD_MAX_FILE_BYTES:
         raise RuntimeError(f"La imagen pesa mas de {DISCORD_MAX_FILE_BYTES} bytes: {image_path.stat().st_size}")
 
-    message = build_discord_message(tiers, source_label, used_fallback, comparison_report)
+    message = build_discord_message(tiers, source_label, used_fallback, comparison_report, report_config)
     LOGGER.info("Publicando tier list en Discord")
     last_error: Exception | None = None
     for attempt in range(1, REQUEST_RETRIES + 1):

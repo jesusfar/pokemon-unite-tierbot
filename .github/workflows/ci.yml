@@ -32,4 +32,6 @@ jobs:
         run: pytest
 
       - name: Generate sample image
-        run: python tierbot.py --dry-run --no-browser
+        run: |
+          python tierbot.py --monthly --dry-run --no-browser
+          python tierbot.py --weekly --dry-run --no-browser

@@ -6,6 +6,8 @@ Bot en Python para generar una tier list mensual de Pokémon UNITE en español, 
 
 - `output/tierlist_pokemon_unite.png`: imagen completa compatible con el nombre original.
 - `output/tierlist_pokemon_unite_discord.png`: imagen optimizada para leerse mejor en Discord.
+- `output/tierlist_pokemon_unite_weekly.png`: pulso semanal completo.
+- `output/tierlist_pokemon_unite_weekly_discord.png`: pulso semanal optimizado para Discord.
 
 La versión Discord usa:
 
@@ -18,6 +20,8 @@ La versión Discord usa:
 - resumen textual por tier en el mensaje de Discord
 - fuente de datos visible
 - marca de propiedad de STARRY GARDEN en el pie de la imagen
+
+La versión mensual usa tema rojo. La versión semanal usa tema naranja y se publica como pulso del meta.
 
 ## Datos
 
@@ -74,7 +78,8 @@ playwright install chromium
 Generar imágenes sin publicar:
 
 ```bash
-python tierbot.py --dry-run
+python tierbot.py --monthly --dry-run
+python tierbot.py --weekly --dry-run
 ```
 
 Intentar sin Playwright:
@@ -87,7 +92,8 @@ Generar y publicar:
 
 ```bash
 set DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
-python tierbot.py --send
+python tierbot.py --monthly --send
+python tierbot.py --weekly --send
 ```
 
 Publicar una imagen ya generada:
@@ -111,6 +117,7 @@ python tierbot.py --message-only
 ## GitHub Actions
 
 - `.github/workflows/monthly-tierlist.yml`: publica el día 1 de cada mes y permite ejecución manual.
+- `.github/workflows/weekly-tierpulse.yml`: publica el pulso semanal cada lunes y permite ejecución manual.
 - `.github/workflows/ci.yml`: ejecuta lint, tests y generación de imagen sin publicar.
 
 ## Desarrollo

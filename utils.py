@@ -34,7 +34,7 @@ def setup_logging(verbose: bool = False) -> None:
 
 def spanish_date(value: date | None = None) -> str:
     value = value or date.today()
-    return f"{value.day} de {SPANISH_MONTHS[value.month]} de {value.year}"
+    return f"{value.day:02d}/{value.month:02d}/{value.year}"
 
 
 def normalize_pokemon(raw: dict[str, Any]) -> dict[str, Any] | None:

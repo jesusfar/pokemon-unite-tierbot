@@ -8,6 +8,7 @@ import requests
 from PIL import Image, ImageDraw, ImageFont
 
 from config import IMAGE_MARGIN, IMAGE_WIDTH, OUTPUT_IMAGE, REQUEST_TIMEOUT_SECONDS, USER_AGENT
+from report_config import MONTHLY_REPORT, ReportConfig
 from utils import spanish_date
 
 LOGGER = logging.getLogger(__name__)
@@ -15,8 +16,6 @@ LOGGER = logging.getLogger(__name__)
 BACKGROUND = (13, 13, 17)
 PANEL = (26, 27, 34)
 PANEL_ALT = (36, 37, 46)
-RED = (229, 35, 54)
-RED_DARK = (104, 16, 29)
 TEXT = (248, 248, 252)
 MUTED = (181, 184, 196)
 TIER_COLORS = {
@@ -33,7 +32,9 @@ def generate_tierlist_image(
     output_path: Path = OUTPUT_IMAGE,
     source_label: str = "UniteAPI Meta",
     comparison_report: Any | None = None,
+    report_config: ReportConfig | None = None,
 ) -> None:
+    report_config = report_config or MONTHLY_REPORT
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     fonts = load_fonts()
@@ -50,14 +51,14 @@ def generate_tierlist_image(
     image = Image.new("RGB", (IMAGE_WIDTH, height), BACKGROUND)
     draw = ImageDraw.Draw(image)
 
-    draw_background(draw, image.size)
-    draw_header(draw, fonts, source_label)
-    draw_highlights(image, draw, fonts, top_three, most_used, most_banned)
+    draw_background(draw, image.size, report_config)
+    draw_header(draw, fonts, source_label, report_config)
+    draw_highlights(image, draw, fonts, top_three, most_used, most_banned, report_config)
     draw_comparison_panel(draw, fonts, comparison_report)
 
     y = header_height
     for (tier_name, pokemon), layout in zip(tiers.items(), row_layouts, strict=True):
-        draw_tier_row(image, draw, fonts, tier_name, pokemon, y, layout)
+        draw_tier_row(image, draw, fonts, tier_name, pokemon, y, layout, report_config)
         y += layout["height"]
 
     footer = "Score = WR 60% + PR 25% + BR 15%. Datos automaticos; pueden variar segun disponibilidad."
@@ -85,23 +86,58 @@ def tier_row_layout(pokemon: list[dict[str, Any]]) -> dict[str, int]:
     }
 
 
-def draw_background(draw: ImageDraw.ImageDraw, size: tuple[int, int]) -> None:
+def draw_background(draw: ImageDraw.ImageDraw, size: tuple[int, int], report_config: ReportConfig) -> None:
     width, height = size
     draw.rectangle((0, 0, width, height), fill=BACKGROUND)
-    draw.rectangle((0, 0, width, 16), fill=RED)
-    for offset, color in ((0, RED_DARK), (18, (55, 18, 26)), (42, (24, 24, 31))):
+    draw.rectangle((0, 0, width, 16), fill=report_config.accent)
+    for offset, color in ((0, report_config.accent_dark), (18, (55, 26, 18)), (42, (24, 24, 31))):
         draw.line((0, 102 + offset, width, 22 + offset), fill=color, width=3)
     draw.rectangle((0, 0, width, height), outline=(42, 42, 52), width=2)
 
 
-def draw_header(draw: ImageDraw.ImageDraw, fonts: dict[str, ImageFont.FreeTypeFont], source_label: str) -> None:
-    draw.text((IMAGE_MARGIN, 50), "Tier List mensual de Pokémon UNITE", font=fonts["title"], fill=TEXT)
+def draw_header(
+    draw: ImageDraw.ImageDraw,
+    fonts: dict[str, ImageFont.FreeTypeFont],
+    source_label: str,
+    report_config: ReportConfig,
+) -> None:
+    draw.text((IMAGE_MARGIN, 50), report_config.title, font=fonts["title"], fill=TEXT)
     draw.text((IMAGE_MARGIN, 118), "STARRY GARDEN", font=fonts["subtitle"], fill=MUTED)
 
     date_text = spanish_date().upper()
-    draw_pill(draw, IMAGE_WIDTH - IMAGE_MARGIN - 260, 58, 260, 48, date_text, fonts["small"], RED)
-    draw_pill(draw, IMAGE_MARGIN, 168, 310, 42, "Score = WR 60 + PR 25 + BR 15", fonts["tiny"], RED_DARK)
-    draw_pill(draw, IMAGE_MARGIN + 324, 168, 260, 42, f"Fuente: {source_label}", fonts["tiny"], (54, 55, 68))
+    draw_pill(
+        draw,
+        IMAGE_WIDTH - IMAGE_MARGIN - 260,
+        58,
+        260,
+        48,
+        date_text,
+        fonts["small"],
+        report_config.accent,
+        report_config.accent,
+    )
+    draw_pill(
+        draw,
+        IMAGE_MARGIN,
+        168,
+        310,
+        42,
+        "Score = WR 60 + PR 25 + BR 15",
+        fonts["tiny"],
+        report_config.accent_dark,
+        report_config.accent,
+    )
+    draw_pill(
+        draw,
+        IMAGE_MARGIN + 324,
+        168,
+        260,
+        42,
+        f"Fuente: {source_label}",
+        fonts["tiny"],
+        (54, 55, 68),
+        report_config.accent,
+    )
 
 
 def draw_highlights(
@@ -111,12 +147,13 @@ def draw_highlights(
     top_three: list[dict[str, Any]],
     most_used: dict[str, Any] | None,
     most_banned: dict[str, Any] | None,
+    report_config: ReportConfig,
 ) -> None:
     y = 222
     draw.text((IMAGE_MARGIN, y + 16), "Top 3", font=fonts["section"], fill=TEXT)
     x = IMAGE_MARGIN + 124
     for index, item in enumerate(top_three, start=1):
-        draw_mini_highlight(canvas, draw, fonts, item, x, y, index)
+        draw_mini_highlight(canvas, draw, fonts, item, x, y, index, report_config)
         x += 238
 
     chip_x = IMAGE_WIDTH - IMAGE_MARGIN - 410
@@ -176,18 +213,19 @@ def draw_mini_highlight(
     x: int,
     y: int,
     rank: int,
+    report_config: ReportConfig,
 ) -> None:
     draw.rounded_rectangle((x, y, x + 220, y + 94), radius=8, fill=PANEL, outline=(67, 68, 80), width=1)
-    draw.text((x + 14, y + 13), f"#{rank}", font=fonts["rank"], fill=RED)
+    draw.text((x + 14, y + 13), f"#{rank}", font=fonts["rank"], fill=report_config.accent)
     sprite = load_sprite(item)
     if sprite:
         sprite.thumbnail((62, 62), Image.Resampling.LANCZOS)
         canvas.paste(sprite, (x + 54, y + 16), sprite if sprite.mode == "RGBA" else None)
     else:
-        draw_placeholder(draw, x + 58, y + 18, 54)
+        draw_placeholder(draw, x + 58, y + 18, 54, report_config)
     name = fit_text(draw, item["name"], fonts["tiny_bold"], 94)
     draw.text((x + 126, y + 18), name, font=fonts["tiny_bold"], fill=TEXT)
-    draw.text((x + 126, y + 51), f"{item['score']:.1f}", font=fonts["score"], fill=(255, 210, 216))
+    draw.text((x + 126, y + 51), f"{item['score']:.1f}", font=fonts["score"], fill=(255, 218, 224))
 
 
 def draw_stat_chip(
@@ -213,6 +251,7 @@ def draw_tier_row(
     pokemon: list[dict[str, Any]],
     y: int,
     layout: dict[str, int],
+    report_config: ReportConfig,
 ) -> None:
     left = IMAGE_MARGIN
     right = IMAGE_WIDTH - IMAGE_MARGIN
@@ -221,11 +260,10 @@ def draw_tier_row(
 
     draw.rounded_rectangle((left, y, right, row_bottom), radius=8, fill=PANEL, outline=(50, 51, 62), width=2)
     draw.rounded_rectangle((left, y, left + tier_width, row_bottom), radius=8, fill=TIER_COLORS[tier_name])
-    tier_label = f"{tier_name}"
-    tier_bbox = draw.textbbox((0, 0), tier_label, font=fonts["tier"])
+    tier_bbox = draw.textbbox((0, 0), tier_name, font=fonts["tier"])
     draw.text(
         (left + (tier_width - (tier_bbox[2] - tier_bbox[0])) / 2, y + (row_bottom - y - 84) / 2),
-        tier_label,
+        tier_name,
         font=fonts["tier"],
         fill=(20, 20, 24),
     )
@@ -241,7 +279,7 @@ def draw_tier_row(
         line = index // per_line
         x = card_x + col * (card_size + gap)
         item_y = card_y + line * 222
-        draw_pokemon_card(canvas, draw, fonts, item, x, item_y, card_size)
+        draw_pokemon_card(canvas, draw, fonts, item, x, item_y, card_size, report_config)
 
 
 def draw_pokemon_card(
@@ -252,6 +290,7 @@ def draw_pokemon_card(
     x: int,
     y: int,
     size: int,
+    report_config: ReportConfig,
 ) -> None:
     draw.rounded_rectangle((x, y, x + size, y + 202), radius=8, fill=PANEL_ALT, outline=(64, 65, 78), width=1)
     sprite = load_sprite(item)
@@ -260,7 +299,7 @@ def draw_pokemon_card(
         px = x + (size - sprite.width) // 2
         canvas.paste(sprite, (px, y + 14), sprite if sprite.mode == "RGBA" else None)
     else:
-        draw_placeholder(draw, x + 35, y + 18, 112)
+        draw_placeholder(draw, x + 35, y + 18, 112, report_config)
 
     name = fit_text(draw, item["name"], fonts["name"], size - 16)
     name_bbox = draw.textbbox((0, 0), name, font=fonts["name"])
@@ -286,8 +325,9 @@ def draw_pill(
     text: str,
     font: ImageFont.FreeTypeFont,
     fill: tuple[int, int, int],
+    outline: tuple[int, int, int],
 ) -> None:
-    draw.rounded_rectangle((x, y, x + width, y + height), radius=8, fill=fill, outline=RED, width=1)
+    draw.rounded_rectangle((x, y, x + width, y + height), radius=8, fill=fill, outline=outline, width=1)
     text = fit_text(draw, text, font, width - 24)
     box = draw.textbbox((0, 0), text, font=font)
     draw.text(
@@ -317,13 +357,33 @@ def draw_property_notice(
         x += draw.textlength(text, font=font)
 
 
-def draw_placeholder(draw: ImageDraw.ImageDraw, x: int, y: int, size: int) -> None:
-    draw.rounded_rectangle((x, y, x + size, y + size), radius=14, fill=(29, 30, 39), outline=RED_DARK, width=3)
+def draw_placeholder(
+    draw: ImageDraw.ImageDraw,
+    x: int,
+    y: int,
+    size: int,
+    report_config: ReportConfig,
+) -> None:
+    draw.rounded_rectangle(
+        (x, y, x + size, y + size),
+        radius=14,
+        fill=(29, 30, 39),
+        outline=report_config.accent_dark,
+        width=3,
+    )
     inset = max(8, int(size * 0.27))
     line_inset = max(6, int(size * 0.20))
     line_width = max(2, int(size * 0.045))
-    draw.ellipse((x + inset, y + inset, x + size - inset, y + size - inset), outline=RED, width=line_width)
-    draw.line((x + line_inset, y + size // 2, x + size - line_inset, y + size // 2), fill=RED, width=line_width)
+    draw.ellipse(
+        (x + inset, y + inset, x + size - inset, y + size - inset),
+        outline=report_config.accent,
+        width=line_width,
+    )
+    draw.line(
+        (x + line_inset, y + size // 2, x + size - line_inset, y + size // 2),
+        fill=report_config.accent,
+        width=line_width,
+    )
 
 
 def load_sprite(item: dict[str, Any]) -> Image.Image | None:
